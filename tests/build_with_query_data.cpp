@@ -72,7 +72,7 @@ void build_with_query_data(const std::string& data_path, const unsigned L,
   }
 
   diskann::Index<T, TagT> index(
-      diskann::L2, dim, num_points + num_query_points, true, paras, paras,
+      diskann::INNER_PRODUCT, dim, num_points + num_query_points, true, paras, paras,
       enable_tags, support_eager_delete, concurrent_consolidate, queries_present);
 
   std::vector<TagT> tags(num_points + num_query_points);

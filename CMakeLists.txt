@@ -4,7 +4,7 @@
 if(MSVC)
 	cmake_minimum_required(VERSION 3.15)
 else()
-	cmake_minimum_required(VERSION 2.8)
+	cmake_minimum_required(VERSION 2.8.12)
 endif()
 set(CMAKE_STANDARD 14)
 
