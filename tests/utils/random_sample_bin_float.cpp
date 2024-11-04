@@ -22,7 +22,7 @@ int main(int argc, char** argv) {
             << std::endl;
 
   _s32 rpts = atoi(argv[3]);
-  std::cout << "Adding " << rpts << " random points to new file" << std::endl; 
+  std::cout << "Adding " << rpts << " random points to new file" << std::endl;
 
   std::vector<_s32> random_ids(npts);
   std::iota(random_ids.begin(), random_ids.end(), 0);
@@ -36,15 +36,16 @@ int main(int argc, char** argv) {
   writer.write((char*) &ndims_s32, sizeof(_s32));
   float* read_buf = new float[npts * ndims];
   float* write_buf = new float[rpts * ndims];
-  readr.read((char*) read_buf, npts*ndims*(sizeof(float)));
-  for(_s32 i=0; i<(_s32) random_ids.size(); i++){
+  readr.read((char*) read_buf, npts * ndims * (sizeof(float)));
+  for (_s32 i = 0; i < (_s32) random_ids.size(); i++) {
     auto id = random_ids[i];
-  	memcpy(write_buf+i*ndims, read_buf+id*(ndims), ndims*(sizeof(float)));
+    memcpy(write_buf + i * ndims, read_buf + id * (ndims),
+           ndims * (sizeof(float)));
   }
-  for(size_t i=0; i<ndims; i++){
-    std::cout << *(write_buf+i) << std::endl; 
+  for (size_t i = 0; i < ndims; i++) {
+    std::cout << *(write_buf + i) << std::endl;
   }
-  writer.write((char*) write_buf, rpts*ndims*sizeof(float));
+  writer.write((char*) write_buf, rpts * ndims * sizeof(float));
 
   delete[] read_buf;
   delete[] write_buf;

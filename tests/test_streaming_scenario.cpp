@@ -351,7 +351,7 @@ void build_incremental_index(
       std::cout << "Prepared request in " << request_timer.elapsed() / 1000000.0
                 << " seconds (" << failed_deletes.size() << " failed)\n";
 
-      //omp_set_num_threads(thread_count);
+      // omp_set_num_threads(thread_count);
 
       diskann::Timer delete_timer;
       index.consolidate_deletes(params);

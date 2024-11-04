@@ -202,8 +202,8 @@ int search_disk_index(diskann::Metric&   metric,
       std::vector<_u64>  indices;
       std::vector<float> distances;
       _u32               res_count = _pFlashIndex->range_search(
-          query + (i * query_aligned_dim), search_range, L, max_list_size,
-          indices, distances, optimized_beamwidth, stats + i);
+                        query + (i * query_aligned_dim), search_range, L, max_list_size,
+                        indices, distances, optimized_beamwidth, stats + i);
       query_result_ids[test_id][i].reserve(res_count);
       query_result_ids[test_id][i].resize(res_count);
       for (_u32 idx = 0; idx < res_count; idx++)
@@ -342,17 +342,17 @@ int main(int argc, char** argv) {
 
   try {
     if (data_type == std::string("float"))
-      return search_disk_index<float>(
-          metric, index_path_prefix, query_file, gt_file,
-          num_threads, range, W, num_nodes_to_cache, Lvec);
+      return search_disk_index<float>(metric, index_path_prefix, query_file,
+                                      gt_file, num_threads, range, W,
+                                      num_nodes_to_cache, Lvec);
     else if (data_type == std::string("int8"))
-      return search_disk_index<int8_t>(
-          metric, index_path_prefix, query_file, gt_file,
-          num_threads, range, W, num_nodes_to_cache, Lvec);
+      return search_disk_index<int8_t>(metric, index_path_prefix, query_file,
+                                       gt_file, num_threads, range, W,
+                                       num_nodes_to_cache, Lvec);
     else if (data_type == std::string("uint8"))
-      return search_disk_index<uint8_t>(
-          metric, index_path_prefix, query_file, gt_file,
-          num_threads, range, W, num_nodes_to_cache, Lvec);
+      return search_disk_index<uint8_t>(metric, index_path_prefix, query_file,
+                                        gt_file, num_threads, range, W,
+                                        num_nodes_to_cache, Lvec);
     else {
       std::cerr << "Unsupported data type. Use float or int8 or uint8"
                 << std::endl;

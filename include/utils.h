@@ -49,15 +49,16 @@ typedef int FileHandle;
 // https://github.com/Microsoft/BLAS-on-flash/blob/master/include/utils.h
 // round up X to the nearest multiple of Y
 #define ROUND_UP(X, Y) \
-  ((((uint64_t)(X) / (Y)) + ((uint64_t)(X) % (Y) != 0)) * (Y))
+  ((((uint64_t) (X) / (Y)) + ((uint64_t) (X) % (Y) != 0)) * (Y))
 
-#define DIV_ROUND_UP(X, Y) (((uint64_t)(X) / (Y)) + ((uint64_t)(X) % (Y) != 0))
+#define DIV_ROUND_UP(X, Y) \
+  (((uint64_t) (X) / (Y)) + ((uint64_t) (X) % (Y) != 0))
 
 // round down X to the nearest multiple of Y
-#define ROUND_DOWN(X, Y) (((uint64_t)(X) / (Y)) * (Y))
+#define ROUND_DOWN(X, Y) (((uint64_t) (X) / (Y)) * (Y))
 
 // alignment tests
-#define IS_ALIGNED(X, Y) ((uint64_t)(X) % (uint64_t)(Y) == 0)
+#define IS_ALIGNED(X, Y) ((uint64_t) (X) % (uint64_t) (Y) == 0)
 #define IS_512_ALIGNED(X) IS_ALIGNED(X, 512)
 #define IS_4096_ALIGNED(X) IS_ALIGNED(X, 4096)
 #define METADATA_SIZE \
@@ -85,7 +86,7 @@ inline bool file_exists(const std::string& name, bool dirCheck = false) {
         diskann::cout << "Invalid argument passed to stat()" << std::endl;
         break;
       case ENOENT:
-// file is not existing, not an issue, so we won't cout anything.
+        // file is not existing, not an issue, so we won't cout anything.
         break;
       default:
         diskann::cout << "Unexpected error in stat():" << errno << std::endl;
@@ -108,14 +109,14 @@ typedef uint8_t  _u8;
 typedef int8_t   _s8;
 inline void      open_file_to_write(std::ofstream&     writer,
                                     const std::string& filename) {
-  writer.exceptions(std::ofstream::failbit | std::ofstream::badbit);
-  if (!file_exists(filename))
+       writer.exceptions(std::ofstream::failbit | std::ofstream::badbit);
+       if (!file_exists(filename))
     writer.open(filename, std::ios::binary | std::ios::out);
   else
     writer.open(filename, std::ios::binary | std::ios::in | std::ios::out);
 
   if (writer.fail()) {
-    char buff[1024];
+         char buff[1024];
 #ifdef _WINDOWS
     strerror_s(buff, 1024, errno);
 #else
@@ -793,7 +794,7 @@ namespace diskann {
                                           size_t& npts, size_t& dim,
                                           const size_t& rounded_dim,
                                           size_t        offset = 0,
-                                          size_t data_offset = 0) {
+                                          size_t        data_offset = 0) {
     if (data == nullptr) {
       diskann::cerr << "Memory was not allocated for " << data
                     << " before calling the load function. Exiting..."
@@ -813,7 +814,7 @@ namespace diskann {
     npts = (unsigned) npts_i32;
     dim = (unsigned) dim_i32;
 
-    for (size_t i = data_offset; i < npts+data_offset; i++) {
+    for (size_t i = data_offset; i < npts + data_offset; i++) {
       reader.read((char*) (data + i * rounded_dim), dim * sizeof(T));
       memset(data + i * rounded_dim + dim, 0, (rounded_dim - dim) * sizeof(T));
     }
@@ -903,7 +904,7 @@ inline void normalize(T* arr, size_t dim) {
   }
   sum = sqrt(sum);
   for (uint32_t i = 0; i < dim; i++) {
-    arr[i] = (T)(arr[i] / sum);
+    arr[i] = (T) (arr[i] / sum);
   }
 }
 

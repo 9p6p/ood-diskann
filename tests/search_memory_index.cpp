@@ -56,7 +56,9 @@ int search_memory_index(diskann::Metric& metric, const std::string& index_path,
   bool support_eager_delete = false;
   bool concurrent_consolidate = false;
 
-  diskann::Index<T, uint32_t> index(metric, query_dim, 1, dynamic, dynamic, support_eager_delete, concurrent_consolidate, tags);
+  diskann::Index<T, uint32_t> index(metric, query_dim, 1, dynamic, dynamic,
+                                    support_eager_delete,
+                                    concurrent_consolidate, tags);
   index.load(index_path.c_str(), num_threads,
              *(std::max_element(Lvec.begin(), Lvec.end())));
   std::cout << "Index loaded" << std::endl;
@@ -88,7 +90,7 @@ int search_memory_index(diskann::Metric& metric, const std::string& index_path,
   std::vector<std::vector<float>>    query_result_dists(Lvec.size());
   std::vector<float>                 latency_stats(query_num, 0);
   std::vector<unsigned>              cmp_stats;
-  if (not tags) {
+  if (!tags) {
     cmp_stats = std::vector<unsigned>(query_num, 0);
   }
 
@@ -158,12 +160,12 @@ int search_memory_index(diskann::Metric& metric, const std::string& index_path,
     if (tags) {
       std::cout << std::setw(4) << L << std::setw(12) << qps << std::setw(20)
                 << (float) mean_latency << std::setw(15)
-                << (float) latency_stats[(_u64)(0.999 * query_num)];
+                << (float) latency_stats[(_u64) (0.999 * query_num)];
     } else {
       std::cout << std::setw(4) << L << std::setw(12) << qps << std::setw(18)
                 << avg_cmps << std::setw(20) << (float) mean_latency
                 << std::setw(15)
-                << (float) latency_stats[(_u64)(0.999 * query_num)];
+                << (float) latency_stats[(_u64) (0.999 * query_num)];
     }
     if (calc_recall_flag)
       std::cout << std::setw(12) << recall;
@@ -228,7 +230,7 @@ int main(int argc, char** argv) {
         "Number of threads used for building index (defaults to "
         "omp_get_num_procs())");
     desc.add_options()("dynamic",
-                       po::value<bool>(&dynamic)->default_value(false),
+                       po::value<bool>(&dynamic)->default_value(true),
                        "Whether the index is dynamic. Default false.");
     desc.add_options()("tags", po::value<bool>(&tags)->default_value(false),
                        "Whether to search with tags. Default false.");
@@ -273,9 +275,9 @@ int main(int argc, char** argv) {
     }
 
     else if (data_type == std::string("uint8")) {
-      return search_memory_index<uint8_t>(metric, index_path_prefix,
-                                          result_path, query_file, gt_file,
-                                          num_threads, K, Lvec, dynamic, tags, flags);
+      return search_memory_index<uint8_t>(
+          metric, index_path_prefix, result_path, query_file, gt_file,
+          num_threads, K, Lvec, dynamic, tags, flags);
     } else if (data_type == std::string("float")) {
       return search_memory_index<float>(metric, index_path_prefix, result_path,
                                         query_file, gt_file, num_threads, K,

@@ -47,16 +47,16 @@ namespace diskann {
 
   template<typename T>
   struct InMemQueryScratch {
-    std::vector<Neighbor> *   _pool = nullptr;
+    std::vector<Neighbor>    *_pool = nullptr;
     tsl::robin_set<unsigned> *_visited = nullptr;
-    std::vector<unsigned> *   _des = nullptr;
-    std::vector<Neighbor> *   _best_l_nodes = nullptr;
+    std::vector<unsigned>    *_des = nullptr;
+    std::vector<Neighbor>    *_best_l_nodes = nullptr;
     tsl::robin_set<unsigned> *_inserted_into_pool_rs = nullptr;
-    boost::dynamic_bitset<> * _inserted_into_pool_bs = nullptr;
+    boost::dynamic_bitset<>  *_inserted_into_pool_bs = nullptr;
 
-    T *       aligned_query = nullptr;
+    T        *aligned_query = nullptr;
     uint32_t *indices = nullptr;
-    float *   interim_dists = nullptr;
+    float    *interim_dists = nullptr;
 
     uint32_t search_l;
     uint32_t indexing_l;
@@ -138,24 +138,24 @@ namespace diskann {
     // Batch build from a file. Optionally pass tags vector.
     DISKANN_DLLEXPORT void build(
         const char *filename, const size_t num_points_to_load,
-        Parameters &             parameters,
+        Parameters              &parameters,
         const std::vector<TagT> &tags = std::vector<TagT>(),
-        const char *             query_filename = nullptr,
+        const char              *query_filename = nullptr,
         const size_t             num_query_points_to_load = 0);
 
     // Batch build from a file. Optionally pass tags file.
-    DISKANN_DLLEXPORT void build(const char * filename,
+    DISKANN_DLLEXPORT void build(const char  *filename,
                                  const size_t num_points_to_load,
-                                 Parameters & parameters,
-                                 const char * tag_filename,
-                                 const char * query_filename = nullptr,
+                                 Parameters  &parameters,
+                                 const char  *tag_filename,
+                                 const char  *query_filename = nullptr,
                                  const size_t num_query_points_to_load = 0);
 
     // Batch build from a data array, which must pad vectors to aligned_dim
     DISKANN_DLLEXPORT void build(const T *data, const size_t num_points_to_load,
-                                 Parameters &             parameters,
+                                 Parameters              &parameters,
                                  const std::vector<TagT> &tags,
-                                 const T *                query_data = nullptr,
+                                 const T                 *query_data = nullptr,
                                  const size_t num_query_points_to_load = 0);
 
     // For Bulk Index FastL2 search, we interleave the data with graph
@@ -176,7 +176,7 @@ namespace diskann {
     // Initialize space for res_vectors before calling.
     DISKANN_DLLEXPORT size_t search_with_tags(const T *query, const uint64_t K,
                                               const unsigned L, TagT *tags,
-                                              float *           distances,
+                                              float            *distances,
                                               std::vector<T *> &res_vectors);
 
     DISKANN_DLLEXPORT void clear_index();
@@ -196,7 +196,7 @@ namespace diskann {
     // if tag not found. Do not call if _eager_delete was called earlier and
     // data was not consolidated. Return -1 if
     DISKANN_DLLEXPORT int lazy_delete(const tsl::robin_set<TagT> &tags,
-                                      std::vector<TagT> &         failed_tags);
+                                      std::vector<TagT>          &failed_tags);
 
     // Call after a series of lazy deletions
     // Returns number of live points left after consolidation
@@ -254,7 +254,7 @@ namespace diskann {
     Index<T, TagT> &operator=(const Index<T, TagT> &) = delete;
 
     // Use after _data and _nd have been populated
-    void build_with_data_populated(Parameters &             parameters,
+    void build_with_data_populated(Parameters              &parameters,
                                    const std::vector<TagT> &tags,
                                    const size_t num_query_points = 0);
 
@@ -271,14 +271,14 @@ namespace diskann {
     template<typename IDType>
     std::pair<uint32_t, uint32_t> search_impl(const T *query, const size_t K,
                                               const unsigned L, IDType *indices,
-                                              float *               distances,
+                                              float                *distances,
                                               InMemQueryScratch<T> &scratch);
 
     std::pair<uint32_t, uint32_t> iterate_to_fixed_point(
         const T *node_coords, const unsigned Lindex,
         const std::vector<unsigned> &init_ids,
-        std::vector<Neighbor> &      expanded_nodes_info,
-        tsl::robin_set<unsigned> &   expanded_nodes_ids,
+        std::vector<Neighbor>       &expanded_nodes_info,
+        tsl::robin_set<unsigned>    &expanded_nodes_ids,
         std::vector<Neighbor> &best_L_nodes, std::vector<unsigned> &des,
         tsl::robin_set<unsigned> &inserted_into_pool_rs,
         boost::dynamic_bitset<> &inserted_into_pool_bs, bool ret_frozen = true,
@@ -286,18 +286,18 @@ namespace diskann {
 
     void get_expanded_nodes(const size_t node, const unsigned Lindex,
                             std::vector<unsigned>     init_ids,
-                            std::vector<Neighbor> &   expanded_nodes_info,
+                            std::vector<Neighbor>    &expanded_nodes_info,
                             tsl::robin_set<unsigned> &expanded_nodes_ids,
-                            std::vector<unsigned> &   des,
-                            std::vector<Neighbor> &   best_L_nodes,
+                            std::vector<unsigned>    &des,
+                            std::vector<Neighbor>    &best_L_nodes,
                             tsl::robin_set<unsigned> &inserted_into_pool_rs,
-                            boost::dynamic_bitset<> & inserted_into_pool_bs);
+                            boost::dynamic_bitset<>  &inserted_into_pool_bs);
 
     // get_expanded_nodes for insertion. Must investigate to see if perf can
     // be improved here as well using the same technique as above.
     void get_expanded_nodes(const size_t node_id, const unsigned Lindex,
                             std::vector<unsigned>     init_ids,
-                            std::vector<Neighbor> &   expanded_nodes_info,
+                            std::vector<Neighbor>    &expanded_nodes_info,
                             tsl::robin_set<unsigned> &expanded_nodes_ids);
 
     void prune_neighbors(const unsigned location, std::vector<Neighbor> &pool,
@@ -314,17 +314,17 @@ namespace diskann {
     void occlude_list(std::vector<Neighbor> &pool, const float alpha,
                       const unsigned degree, const unsigned maxc,
                       std::vector<Neighbor> &result,
-                      std::vector<float> &   occlude_factor);
+                      std::vector<float>    &occlude_factor);
 
     // add reverse links from all the visited nodes to node n.
     void batch_inter_insert(unsigned                     n,
                             const std::vector<unsigned> &pruned_list,
                             const _u32                   range,
-                            std::vector<unsigned> &      need_to_sync);
+                            std::vector<unsigned>       &need_to_sync);
 
     void batch_inter_insert(unsigned                     n,
                             const std::vector<unsigned> &pruned_list,
-                            std::vector<unsigned> &      need_to_sync);
+                            std::vector<unsigned>       &need_to_sync);
 
     // add reverse links from all the visited nodes to node n.
     void inter_insert(unsigned n, std::vector<unsigned> &pruned_list,
@@ -370,7 +370,7 @@ namespace diskann {
     Distance<T> *_distance = nullptr;
 
     // Data
-    T *   _data = nullptr;
+    T    *_data = nullptr;
     char *_opt_graph;
 
     // Graph related data structures
