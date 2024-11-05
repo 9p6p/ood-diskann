@@ -468,7 +468,7 @@ namespace diskann {
     compact_frozen_point();
     if (!_save_as_one_file) {
       std::string graph_file = std::string(filename);
-      // std::string tags_file = std::string(filename) + ".tags";
+      std::string tags_file = std::string(filename) + ".tags";
       std::string data_file = std::string(filename) + ".data";
       // std::string delete_list_file = std::string(filename) + ".del";
 
@@ -480,8 +480,8 @@ namespace diskann {
       save_graph(graph_file);
       delete_file(data_file);
       save_data(data_file);
-      // delete_file(tags_file);
-      // save_tags(tags_file);
+      delete_file(tags_file);
+      save_tags(tags_file);
       // delete_file(delete_list_file);
       // save_delete_list(delete_list_file);
 
@@ -694,7 +694,7 @@ namespace diskann {
       // For DLVS Store, we will not support saving the index in multiple files.
 #ifndef EXEC_ENV_OLS
       std::string data_file = std::string(filename) + ".data";
-      // std::string tags_file = std::string(filename) + ".tags";
+      std::string tags_file = std::string(filename) + ".tags";
       // std::string flags_file = std::string(filename) + ".flags";
       // std::string delete_set_file = std::string(filename) + ".del";
       std::string graph_file = std::string(filename);
@@ -702,9 +702,9 @@ namespace diskann {
       // if (file_exists(delete_set_file)) {
       //   load_delete_set(delete_set_file);
       // }
-      // if (_enable_tags) {
-      //   tags_file_num_pts = load_tags(tags_file);
-      // }
+      if (_enable_tags) {
+         tags_file_num_pts = load_tags(tags_file);
+      }
       graph_num_pts = load_graph(graph_file, data_file_num_pts);
 #endif
 

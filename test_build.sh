@@ -14,7 +14,7 @@ saveprefix=/home/yuxiang/RoarGraph-tochange/indices/${data}
 --max_degree 64 \
 --Lbuild 500 \
 --alpha 1 \
---num_threads 64 \
+--num_threads 20 \
 
 
 # with match file, not disable   /root/autodl-tmp/datasets/t2i-10M/gt.train.dist.10M.fbin
