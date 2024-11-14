@@ -1,0 +1,50 @@
+{
+    // 使用 IntelliSense 了解相关属性。 
+    // 悬停以查看现有属性的描述。
+    // 欲了解更多信息，请访问: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "(gdb) build",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/build/tests/build_with_query_data",
+            "args": [
+                "--data_type",
+                "float",
+                "--data_path",
+                "/home/yuxiang/RoarGraph-tochange/datasets/laion-10M/base.10M.fbin",
+                "--query_file",
+                "/home/yuxiang/RoarGraph-tochange/datasets/laion-10M/query.train.10M.fbin",
+                "--save_path",
+                "/home/yuxiang/RoarGraph-tochange/indices/laion-10M/robustvamana.index",
+                "--max_degree",
+                "64",
+                "--Lbuild",
+                "500",
+                "--alpha",
+                "1",
+                "--num_threads",
+                "48",
+            ],
+            "stopAtEntry": false,
+            "cwd": "${fileDirname}",
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            // "miDebuggerArgs": "-ex 'help set scheduler-locking'",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                },
+                {
+                    "description": "Set Disassembly Flavor to Intel",
+                    "text": "-gdb-set disassembly-flavor intel",
+                    "ignoreFailures": true
+                },
+            ]
+        }
+    ]
+}

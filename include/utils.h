@@ -576,7 +576,7 @@ namespace diskann {
   }
 
   // load_aligned_bin functions START
-
+/*
   template<typename T>
   inline void load_aligned_bin_impl(std::basic_istream<char>& reader,
                                     size_t actual_file_size, T*& data,
@@ -585,11 +585,11 @@ namespace diskann {
     int npts_i32, dim_i32;
     reader.read((char*) &npts_i32, sizeof(int));
     reader.read((char*) &dim_i32, sizeof(int));
-    npts = (unsigned) npts_i32;
-    dim = (unsigned) dim_i32;
+    npts = (size_t) npts_i32;
+    dim = (size_t) dim_i32;
 
     size_t expected_actual_file_size =
-        npts * dim * sizeof(T) + 2 * sizeof(uint32_t);
+        npts * dim * sizeof(T) + 2 * sizeof(T);
     if (actual_file_size != expected_actual_file_size) {
       std::stringstream stream;
       stream << "Error. File size mismatch. Actual size is " << actual_file_size
@@ -616,6 +616,108 @@ namespace diskann {
     }
     diskann::cout << " done." << std::endl;
   }
+*/
+
+  template<typename T>
+inline void load_aligned_bin_impl(std::basic_istream<char>& reader,
+                                size_t actual_file_size, T*& data,
+                                size_t& npts, size_t& dim,
+                                size_t& rounded_dim) {
+    // 1. 安全读取元数据
+    int32_t npts_i32, dim_i32;
+    reader.read((char*)&npts_i32, sizeof(int32_t));
+    reader.read((char*)&dim_i32, sizeof(int32_t));
+    
+    // 检查是否为正值
+    if (npts_i32 <= 0 || dim_i32 <= 0) {
+        throw diskann::ANNException("Invalid npts or dim value", -1);
+    }
+    
+    // 2. 安全转换到size_t
+    npts = static_cast<size_t>(npts_i32);
+    dim = static_cast<size_t>(dim_i32);
+    
+    // 3. 计算文件大小时防止溢出
+    size_t expected_actual_file_size;
+    if (__builtin_mul_overflow(npts, dim, &expected_actual_file_size) ||
+        __builtin_mul_overflow(expected_actual_file_size, sizeof(T), &expected_actual_file_size) ||
+        __builtin_add_overflow(expected_actual_file_size, 2 * sizeof(T), &expected_actual_file_size)) {
+        throw diskann::ANNException("File size computation overflow", -1);
+    }
+
+    // 4. 验证文件大小
+    if (actual_file_size != expected_actual_file_size) {
+        std::stringstream stream;
+        stream << "File size mismatch. Actual: " << actual_file_size
+               << ", Expected: " << expected_actual_file_size
+               << " (npts=" << npts << ", dim=" << dim 
+               << ", sizeof(T)=" << sizeof(T) << ")";
+        throw diskann::ANNException(stream.str(), -1);
+    }
+
+    // 5. 计算对齐维度
+    rounded_dim = ROUND_UP(dim, 8);
+    
+    // 6. 检查rounded_dim是否合理
+    if (rounded_dim < dim || rounded_dim > dim * 2) {
+        throw diskann::ANNException("Invalid rounded dimension", -1);
+    }
+
+    // 7. 安全计算分配大小
+    size_t allocSize;
+    if (__builtin_mul_overflow(npts, rounded_dim, &allocSize) ||
+        __builtin_mul_overflow(allocSize, sizeof(T), &allocSize)) {
+        throw diskann::ANNException("Memory allocation size overflow", -1);
+    }
+
+    // 检查分配大小是否合理
+    constexpr size_t MAX_ALLOCATION = (size_t)1 << 40;  // 1TB
+    if (allocSize > MAX_ALLOCATION) {
+        throw diskann::ANNException("Requested allocation too large", -1);
+    }
+
+    // 8. 打印信息
+    diskann::cout << "Metadata: #pts=" << npts << ", #dims=" << dim
+                  << ", aligned_dim=" << rounded_dim 
+                  << ", allocating " << allocSize/(1024.0*1024.0*1024.0) 
+                  << "GB of memory... " << std::flush;
+
+    // 9. 分配内存
+    try {
+        alloc_aligned(((void**)&data), allocSize, 8 * sizeof(T));
+    } catch (const std::bad_alloc& e) {
+        throw diskann::ANNException("Failed to allocate memory: " + 
+                                  std::string(e.what()), -1);
+    }
+
+    // 10. 安全读取数据
+    diskann::cout << "done. Copying data..." << std::flush;
+    
+    try {
+        const size_t BLOCK_SIZE = 1000000;  // 每次读取100万个点
+        for (size_t i = 0; i < npts; i += BLOCK_SIZE) {
+            size_t cur_block = std::min(BLOCK_SIZE, npts - i);
+            
+            // 读取原始数据
+            for (size_t j = 0; j < cur_block; j++) {
+                reader.read((char*)(data + (i + j) * rounded_dim), 
+                          dim * sizeof(T));
+                
+                // 填充对齐部分
+                if (rounded_dim > dim) {
+                    memset(data + (i + j) * rounded_dim + dim, 0,
+                          (rounded_dim - dim) * sizeof(T));
+                }
+            }
+        }
+    } catch (const std::exception& e) {
+        aligned_free(data);
+        throw diskann::ANNException("Failed to read data: " + 
+                                  std::string(e.what()), -1);
+    }
+
+    diskann::cout << "done." << std::endl;
+}
 
 #ifdef EXEC_ENV_OLS
   template<typename T>

@@ -36,7 +36,7 @@
 #endif
 #include "index.h"
 
-#define MAX_POINTS_FOR_USING_BITSET 10000000
+#define MAX_POINTS_FOR_USING_BITSET 10004480
 
 namespace diskann {
 
@@ -703,7 +703,7 @@ namespace diskann {
       //   load_delete_set(delete_set_file);
       // }
       if (_enable_tags) {
-         tags_file_num_pts = load_tags(tags_file);
+        tags_file_num_pts = load_tags(tags_file);
       }
       graph_num_pts = load_graph(graph_file, data_file_num_pts);
 #endif
@@ -975,6 +975,8 @@ namespace diskann {
 
     unsigned l = 0;
     Neighbor nn;
+    uint32_t hops = 0;
+    uint32_t cmps = 0;
 
     bool fast_iterate =
         (_max_points + _num_frozen_pts) <= MAX_POINTS_FOR_USING_BITSET;
@@ -1001,6 +1003,7 @@ namespace diskann {
                     _distance->compare(_data + _aligned_dim * (size_t) id,
                                        node_coords, (unsigned) _aligned_dim),
                     true);
+      cmps++;
       if (fast_iterate) {
         if (inserted_into_pool_bs[id] == 0) {
           inserted_into_pool_bs[id] = 1;
@@ -1019,13 +1022,12 @@ namespace diskann {
     // sort best_L_nodes based on distance of each point to node_coords
     std::sort(best_L_nodes.begin(), best_L_nodes.begin() + l);
     unsigned k = 0;
-    uint32_t hops = 0;
-    uint32_t cmps = 0;
 
     while (k < l) {
       unsigned nk = l;
 
       if (best_L_nodes[k].flag) {
+        hops++;
         best_L_nodes[k].flag = false;
         auto n = best_L_nodes[k].id;
         if (!(best_L_nodes[k].id == _start && _num_frozen_pts > 0 &&
@@ -1614,9 +1616,9 @@ namespace diskann {
           diskann::cout.precision(4);
           diskann::cout << "Completed  (round: " << rnd_no
                         << ", sync: " << sync_num << "/" << num_syncs
-                        << " with L " << L << ")"
-                        << " sync_time: " << sync_time << "s"
-                        << "; inter_time: " << inter_time << "s" << std::endl;
+                        << " with L " << L << ")" << " sync_time: " << sync_time
+                        << "s" << "; inter_time: " << inter_time << "s"
+                        << std::endl;
 
           total_sync_time += sync_time;
           total_inter_time += inter_time;
@@ -1696,6 +1698,25 @@ namespace diskann {
                 new_nbh.push_back(nbh);
               }
             }
+            if (node == _max_points) {
+              if (new_nbh.empty()) {
+                std::random_device              rd;
+                std::mt19937                    gen(rd());
+                std::uniform_int_distribution<> dis(0, _nd - 1);
+
+                while (new_nbh.size() < _indexingRange) {
+                  int rand_index = dis(gen);
+                  int candidate = rand_index;
+                  if (!_tag_to_flag[candidate] &&
+                      std::find(new_nbh.begin(), new_nbh.end(), candidate) ==
+                          new_nbh.end()) {
+                    new_nbh.push_back(candidate);
+                  }
+                }
+                std::cout << "Random neighbors generated for _max_points: "
+                          << new_nbh.size() << std::endl;
+              }
+            }
             _final_graph[node].clear();
             for (auto p : new_nbh) {
               _final_graph[node].emplace_back(p);
@@ -1703,77 +1724,41 @@ namespace diskann {
           }
         }
       }
-
       std::cout << "Stitching nodes now..." << std::endl;
 
-      /*for (_s64 query_ctr = (_s64) visit_order.size() - num_query_points - 1;
-           query_ctr < (_s64) visit_order.size() - 1; query_ctr++) {
+      for (_s64 query_ctr = (_s64) visit_order.size() - num_query_points - 1;
+           query_ctr < (_s64) visit_order.size() - 1 && query_ctr >= 0;
+           query_ctr++) {
+        if (query_ctr >= _final_graph.size())
+          continue;
         for (auto nbh : _final_graph[query_ctr]) {
-          if (per_node_capacity[nbh] > 0)
-            changed[nbh] = 1;
+          if (nbh >= per_node_capacity.size())
+            continue;
+          if (nbh >= _final_graph.size())
+            continue;
+          if (per_node_capacity[nbh] > 0) {
+            if (nbh < changed.size()) {
+              changed[nbh] = 1;
+            }
+          }
           int c = 0;
           int j = 0;
           while (c < per_node_capacity[nbh] &&
                  j < (int) _final_graph[query_ctr].size() &&
                  _final_graph[nbh].size() < _indexingRange) {
+            if (j >= _final_graph[query_ctr].size())
+              break;
             auto candidate = _final_graph[query_ctr][j];
-            if (candidate != nbh &&
-                (std::find(_final_graph[nbh].begin(), _final_graph[nbh].end(),
-                           candidate) == _final_graph[nbh].end())) {
+            if (candidate != nbh && candidate < _final_graph.size() &&
+                std::find(_final_graph[nbh].begin(), _final_graph[nbh].end(),
+                          candidate) == _final_graph[nbh].end()) {
               _final_graph[nbh].push_back(candidate);
               c++;
             }
             j++;
           }
         }
-      }*/
-            // 遍历所有查询点
-      for (_s64 query_ctr = (_s64)visit_order.size() - num_query_points - 1;
-          query_ctr < (_s64)visit_order.size() - 1 && query_ctr >= 0; query_ctr++) {  // 增加query_ctr >= 0的检查
-          
-          // 安全检查
-          if (query_ctr >= _final_graph.size()) continue;
-
-          // 遍历查询点的邻居
-          for (auto nbh : _final_graph[query_ctr]) {
-              // 检查邻居是否有效
-              if (nbh >= per_node_capacity.size()) continue;
-              if (nbh >= _final_graph.size()) continue;
-
-              // 检查容量
-              if (per_node_capacity[nbh] > 0) {
-                  if (nbh < changed.size()) {
-                      changed[nbh] = 1;
-                  }
-              }
-
-              int c = 0;  // 已添加的新邻居数
-              int j = 0;  // 当前检查的邻居索引
-
-              // 检查是否可以添加更多邻居
-              while (c < per_node_capacity[nbh] && 
-                    j < (int)_final_graph[query_ctr].size() &&
-                    _final_graph[nbh].size() < _indexingRange) {
-                  
-                  // 安全获取候选邻居
-                  if (j >= _final_graph[query_ctr].size()) break;
-                  auto candidate = _final_graph[query_ctr][j];
-
-                  // 检查候选邻居是否有效
-                  if (candidate != nbh && 
-                      candidate < _final_graph.size() &&
-                      std::find(_final_graph[nbh].begin(), 
-                              _final_graph[nbh].end(),
-                              candidate) == _final_graph[nbh].end()) {
-                      
-                      _final_graph[nbh].push_back(candidate);
-                      c++;
-                  }
-                  j++;
-              }
-          }
       }
-
       auto diffclock = std::chrono::high_resolution_clock::now() - startclock;
       std::cout << "RobustStich time: "
                 << (diffclock.count() / (double) 1000000000) << "s"

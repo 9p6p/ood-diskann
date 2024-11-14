@@ -166,11 +166,63 @@ int search_memory_index(diskann::Metric& metric, const std::string& index_path,
   return 0;
 }
 
+float ComputeRecall(uint32_t q_num, uint32_t k, uint32_t gt_dim, uint32_t* res,
+                    uint32_t* gt) {
+  uint32_t total_count = 0;
+  for (uint32_t i = 0; i < q_num; i++) {
+    std::vector<uint32_t> one_gt(gt + i * gt_dim, gt + i * gt_dim + k);
+    std::vector<uint32_t> intersection;
+    std::vector<uint32_t> temp_res(res + i * k, res + i * k + k);
+    for (auto p : one_gt) {
+      if (std::find(temp_res.begin(), temp_res.end(), p) != temp_res.end())
+        intersection.push_back(p);
+    }
+
+    total_count += static_cast<uint32_t>(intersection.size());
+  }
+  return static_cast<float>(total_count) / (float) (k * q_num);
+}
+
+double ComputeRderr(float* gt_dist, uint32_t gt_dim,
+                    std::vector<std::vector<float>>& res_dists, uint32_t k,
+                    diskann::Metric metric) {
+  double   total_err = 0;
+  uint32_t q_num = res_dists.size();
+
+  for (uint32_t i = 0; i < q_num; i++) {
+    std::vector<float> one_gt(gt_dist + i * gt_dim, gt_dist + i * gt_dim + k);
+    std::vector<float> temp_res(res_dists[i].begin(), res_dists[i].end());
+    if (metric == diskann::INNER_PRODUCT) {
+      for (size_t j = 0; j < k; ++j) {
+        temp_res[j] = -1.0 * temp_res[j];
+      }
+    } else if (metric == diskann::COSINE) {
+      for (size_t j = 0; j < k; ++j) {
+        temp_res[j] = 2.0 * (1.0 - (-1.0 * temp_res[j]));
+      }
+    }
+    double err = 0.0;
+    for (uint32_t j = 0; j < k; j++) {
+      err += std::fabs(temp_res[j] - one_gt[j]) / double(one_gt[j]);
+    }
+    err = err / static_cast<double>(k);
+    total_err = total_err + err;
+  }
+  return total_err / static_cast<double>(q_num);
+}
+
 int main(int argc, char** argv) {
-  std::string data_type, dist_fn, index_path_prefix, result_path, query_file,
-      gt_file;
-  unsigned              num_threads, K;
-  std::vector<unsigned> Lvec;
+  std::string base_data_file;
+  std::string query_file;
+  std::string gt_file;
+
+  std::string           projection_index_save_file;
+  std::string           data_type;
+  std::string           dist;
+  std::vector<uint32_t> L_vec;
+  uint32_t              num_threads;
+  uint32_t              k;
+  std::string           evaluation_save_path = "";
 
   po::options_description desc{"Arguments"};
   try {
@@ -178,32 +230,32 @@ int main(int argc, char** argv) {
     desc.add_options()("data_type",
                        po::value<std::string>(&data_type)->required(),
                        "data type <int8/uint8/float>");
-    desc.add_options()("dist_fn", po::value<std::string>(&dist_fn)->required(),
-                       "distance function <l2/mips/fast_l2/cosine>");
-    desc.add_options()("index_path_prefix",
-                       po::value<std::string>(&index_path_prefix)->required(),
-                       "Path prefix to the index");
-    desc.add_options()("result_path",
-                       po::value<std::string>(&result_path)->required(),
-                       "Path prefix for saving results of the queries");
-    desc.add_options()("query_file",
+    desc.add_options()("dist", po::value<std::string>(&dist)->required(),
+                       "distance function <l2/ip>");
+    desc.add_options()("query_path",
                        po::value<std::string>(&query_file)->required(),
-                       "Query file in binary format");
+                       "Query file in bin format");
+    desc.add_options()("gt_path", po::value<std::string>(&gt_file)->required(),
+                       "Groundtruth file in bin format");
     desc.add_options()(
-        "gt_file",
-        po::value<std::string>(&gt_file)->default_value(std::string("null")),
-        "ground truth file for the queryset");
-    desc.add_options()("recall_at,K", po::value<uint32_t>(&K)->required(),
-                       "Number of neighbors to be returned");
-    desc.add_options()("search_list,L",
-                       po::value<std::vector<unsigned>>(&Lvec)->multitoken(),
-                       "List of L values of search");
+        "index_save_path",
+        po::value<std::string>(&projection_index_save_file)->required(),
+        "Path prefix for saving projetion index file components");
+    desc.add_options()(
+        "search_list",
+        po::value<std::vector<uint32_t>>(&L_vec)->multitoken()->required(),
+        "Priority queue length for searching");
+    desc.add_options()("k",
+                       po::value<uint32_t>(&k)->default_value(1)->required(),
+                       "k nearest neighbors");
+    desc.add_options()("evaluation_save_path",
+                       po::value<std::string>(&evaluation_save_path),
+                       "Path prefix for saving evaluation results");
     desc.add_options()(
         "num_threads,T",
         po::value<uint32_t>(&num_threads)->default_value(omp_get_num_procs()),
         "Number of threads used for building index (defaults to "
         "omp_get_num_procs())");
-
     po::variables_map vm;
     po::store(po::parse_command_line(argc, argv, desc), vm);
     if (vm.count("help")) {
@@ -217,15 +269,12 @@ int main(int argc, char** argv) {
   }
 
   diskann::Metric metric;
-  if ((dist_fn == std::string("mips")) && (data_type == std::string("float"))) {
+  if ((dist == std::string("ip")) && (data_type == std::string("float"))) {
     metric = diskann::Metric::INNER_PRODUCT;
-  } else if (dist_fn == std::string("l2")) {
+  } else if (dist == std::string("l2")) {
     metric = diskann::Metric::L2;
-  } else if (dist_fn == std::string("cosine")) {
+  } else if (dist == std::string("cosine")) {
     metric = diskann::Metric::COSINE;
-  } else if ((dist_fn == std::string("fast_l2")) &&
-             (data_type == std::string("float"))) {
-    metric = diskann::Metric::FAST_L2;
   } else {
     std::cout << "Unsupported distance function. Currently only l2/ cosine are "
                  "supported in general, and mips/fast_l2 only for floating "
@@ -234,26 +283,113 @@ int main(int argc, char** argv) {
     return -1;
   }
 
-  try {
-    if (data_type == std::string("int8"))
-      return search_memory_index<int8_t>(metric, index_path_prefix, result_path,
-                                         query_file, gt_file, num_threads, K,
-                                         Lvec);
-    else if (data_type == std::string("uint8"))
-      return search_memory_index<uint8_t>(metric, index_path_prefix,
-                                          result_path, query_file, gt_file,
-                                          num_threads, K, Lvec);
-    else if (data_type == std::string("float"))
-      return search_memory_index<float>(metric, index_path_prefix, result_path,
-                                        query_file, gt_file, num_threads, K,
-                                        Lvec);
-    else {
-      std::cout << "Unsupported type. Use float/int8/uint8" << std::endl;
-      return -1;
-    }
-  } catch (std::exception& e) {
-    std::cout << std::string(e.what()) << std::endl;
-    diskann::cerr << "Index search failed." << std::endl;
-    return -1;
+  omp_set_num_threads(num_threads);
+
+  float* query_data = nullptr;
+  size_t q_pts, q_dim, query_aligned_dim, gt_num, gt_dim;
+  diskann::load_aligned_bin<float>(query_file, query_data, q_pts, q_dim,
+                                   query_aligned_dim);
+  q_dim = query_aligned_dim;
+
+  unsigned* gt_ids = nullptr;
+  float*    gt_dists = nullptr;
+  diskann::load_truthset(gt_file, gt_ids, gt_dists, gt_num, gt_dim);
+  if (gt_num != q_pts) {
+    std::cout << "Error. Mismatch in number of queries and ground truth data"
+              << std::endl;
   }
+
+  // float* base_data = nullptr;
+  // size_t base_num, base_dim, base_aligned_dim;
+  // diskann::load_aligned_bin<float>(base_data_file, base_data, base_num,
+  //                                  base_dim, base_aligned_dim);
+
+  diskann::Index<float, uint32_t> index(metric, q_dim, 0, true, true, false);
+  index.load(projection_index_save_file.c_str(), num_threads,
+             *(std::max_element(L_vec.begin(), L_vec.end())));
+  std::cout << "Index loaded. Load graph index from: "
+            << projection_index_save_file << std::endl;
+
+  // Search
+  std::cout << "k: " << k << std::endl;
+  uint32_t* res = new uint32_t[q_pts * k];
+  float*    res_dists = new float[q_pts * k];
+  uint32_t* projection_cmps_vec = new uint32_t[q_pts];
+  uint32_t* hops_vec = new uint32_t[q_pts];
+  float*    projection_latency_vec = new float[q_pts];
+  memset(res, 0, sizeof(uint32_t) * q_pts * k);
+  memset(res_dists, 0, sizeof(float) * q_pts * k);
+  memset(projection_cmps_vec, 0, sizeof(uint32_t) * q_pts);
+  memset(hops_vec, 0, sizeof(uint32_t) * q_pts);
+  memset(projection_latency_vec, 0, sizeof(float) * q_pts);
+  std::ofstream evaluation_out;
+  if (!evaluation_save_path.empty()) {
+    evaluation_out.open(evaluation_save_path, std::ios::out);
+  }
+  std::cout << "Using thread: " << num_threads << std::endl;
+  std::cout << "L_pq" << "\t\tQPS" << "\t\t\tavg_visited" << "\tmean_latency"
+            << "\trecall@" << k << "\tavg_hops" << std::endl;
+  if (evaluation_out.is_open()) {
+    evaluation_out << "L_pq,QPS,avg_visited,mean_latency,recall@" << k
+                   << ",avg_hops" << std::endl;
+  }
+  for (uint32_t L_pq : L_vec) {
+    if (k > L_pq) {
+      std::cout << "L_pq must greater or equal than k" << std::endl;
+      exit(1);
+    }
+    // pre test good
+    for (size_t i = 0; i < 100; ++i) {
+      index.search(query_data + i * q_dim, k, L_pq, res + i * k,
+                   res_dists + i * k);
+    }
+
+    // record the search time
+    auto start = std::chrono::high_resolution_clock::now();
+#pragma omp parallel for schedule(dynamic, 1)
+    for (size_t i = 0; i < q_pts; ++i) {
+      std::pair<uint32_t, uint32_t> retval = index.search(
+          query_data + i * q_dim, k, L_pq, res + i * k, res_dists + i * k);
+      hops_vec[i] = retval.first;              // retval.first hops
+      projection_cmps_vec[i] = retval.second;  // retval.second cmps
+    }
+    auto end = std::chrono::high_resolution_clock::now();
+
+    auto diff =
+        std::chrono::duration_cast<std::chrono::milliseconds>(end - start)
+            .count();
+    float qps = (float) q_pts / ((float) diff / 1000.0);
+    float recall = ComputeRecall(q_pts, k, gt_dim, res, gt_ids);
+    float avg_projection_cmps = 0.0;
+    for (size_t i = 0; i < q_pts; ++i) {
+      avg_projection_cmps += projection_cmps_vec[i];
+    }
+    avg_projection_cmps /= q_pts;
+
+    float avg_hops = 0.0;
+    for (size_t i = 0; i < q_pts; ++i) {
+      avg_hops += hops_vec[i];
+    }
+    avg_hops /= (float) q_pts;
+    float avg_projection_latency = 0.0;
+    for (size_t i = 0; i < q_pts; ++i) {
+      avg_projection_latency += projection_latency_vec[i];
+    }
+    avg_projection_latency /= (float) q_pts;
+    std::cout << L_pq << "\t\t" << qps << "\t\t" << avg_projection_cmps
+              << "\t\t" << ((float) diff / q_pts) << "\t\t" << recall << "\t\t"
+              << avg_hops << std::endl;
+    if (evaluation_out.is_open()) {
+      evaluation_out << L_pq << "," << qps << "," << avg_projection_cmps << ","
+                     << ((float) diff / q_pts) << "," << recall << ","
+                     << avg_hops << std::endl;
+    }
+  }
+
+  if (evaluation_out.is_open()) {
+    evaluation_out.close();
+  }
+
+  diskann::aligned_free(query_data);
+  return 0;
 }
