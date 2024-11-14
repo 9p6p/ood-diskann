@@ -132,6 +132,8 @@ int main(int argc, char** argv) {
     return -1;
   }
 
+  omp_set_num_threads(num_threads);
+  auto s = std::chrono::high_resolution_clock::now();
   try {
     if (data_type == std::string("int8"))
       build_with_query_data<int8_t>(data_path, L, R, alpha, num_threads,
@@ -151,6 +153,8 @@ int main(int argc, char** argv) {
     std::cerr << "Caught unknown exception" << std::endl;
     exit(-1);
   }
-
+  auto  e = std::chrono::high_resolution_clock::now();
+  std::chrono::duration<double> diff = e - s;
+  std::cout << "indexing time: " << diff.count() << "\n";
   return 0;
 }
