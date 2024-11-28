@@ -132,7 +132,7 @@ int main(int argc, char** argv) {
     return -1;
   }
 
-  omp_set_num_threads(num_threads);
+  // omp_set_num_threads(num_threads);
   auto s = std::chrono::high_resolution_clock::now();
   try {
     if (data_type == std::string("int8"))
